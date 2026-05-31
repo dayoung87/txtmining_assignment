@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual Environment
+venv/
+.venv/
+env/
+
+# VSCode
+.vscode/
+
+# Model files
+models/
+
+# Training outputs
+outputs/
+
+# HuggingFace cache
+.cache/
+hf_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Model checkpoints
+checkpoints/
+runs/
+logs/
+
+# HuggingFace
+*.safetensors
+*.bin
+*.ckpt
+
+# Training artifacts
+trainer_state.json
+training_args.bin
