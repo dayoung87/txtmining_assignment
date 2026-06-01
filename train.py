@@ -1,17 +1,3 @@
-import os
-import warnings
-import logging
-
-os.environ["HF_HUB_DISABLE_IMPLICIT_TOKEN"] = "1"
-os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
-
-warnings.filterwarnings("ignore")
-
-logging.getLogger(
-    "huggingface_hub"
-).setLevel(logging.ERROR)
-
-
 import time
 import numpy as np
 import torch
@@ -493,3 +479,6 @@ def main():
         f"\nSaved Model -> "
         f"{MODEL_DIR}"
     )
+
+if __name__ == "__main__":
+    main()
