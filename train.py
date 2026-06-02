@@ -219,7 +219,7 @@ def main():
         report_to="none"    # 로그 업로드 X
     )
 
-    trainer = Trainer(  # 학습 수행
+    trainer = Trainer(  # 학습 설정
         model=model,
         args=training_args,
         train_dataset=encoded["train"],
@@ -230,15 +230,13 @@ def main():
     )
 
     print("\n===== TRAIN START =====\n")
-    trainer.train()
+    trainer.train() # 학습 실행
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")    # 현재 시간 저장
 
     history = pd.DataFrame(trainer.state.log_history)
 
-    epoch_history = history[
-        history["eval_f1"].notna()
-    ][[
+    epoch_history = history[history["eval_f1"].notna()][[
         "epoch",
         "eval_loss",
         "eval_precision",
@@ -246,163 +244,72 @@ def main():
         "eval_f1"
     ]]
 
-    epoch_file = (
-        OUTPUT_DIR
-        / f"epoch_metrics_{timestamp}.txt"
-    )
+    result_file = (OUTPUT_DIR/ f"epoch_metrics_{timestamp}.txt") # 에포크별 평가 결과 저장할 파일 생성
 
-    with open(
-        epoch_file,
-        "w",
-        encoding="utf-8"
+    with open(  # 파일에 결과값 작성
+        result_file, "w", encoding="utf-8"
     ) as f:
 
-        f.write(
-            "=" * 60 + "\n"
-        )
-        f.write(
-            "EPOCH METRICS\n"
-        )
-        f.write(
-            "=" * 60 + "\n\n"
-        )
-        for _, row in (
-            epoch_history.iterrows()
-        ):
-            f.write(
-                f"Epoch "
-                f"{int(row['epoch'])}\n"
-            )
-            f.write(
-                f"Loss      : "
-                f"{row['eval_loss']:.4f}\n"
-            )
-            f.write(
-                f"Precision : "
-                f"{row['eval_precision']:.4f}\n"
-            )
-            f.write(
-                f"Recall    : "
-                f"{row['eval_recall']:.4f}\n"
-            )
-            f.write(
-                f"F1 Score  : "
-                f"{row['eval_f1']:.4f}\n"
-            )
-            f.write(
-                "-" * 60 + "\n"
-            )
+        f.write("=" * 60 + "\n")    # 구분선
+        f.write("EPOCH METRICS\n")  # 제목
+        f.write("=" * 60 + "\n\n"   # 구분선
+    )
+        for _, row in (epoch_history.iterrows()):   # 에포크마다 작성
+            f.write(f"Epoch {int(row['epoch'])}\n")  # 에포크 수
+            f.write(f"Loss      : {row['eval_loss']:.4f}\n") # loss
+            f.write(f"Precision : {row['eval_precision']:.4f}\n")    # 정밀도
+            f.write(f"Recall    : {row['eval_recall']:.4f}\n")   # 재현율
+            f.write(f"F1 Score  : {row['eval_f1']:.4f}\n")   # F1 점수 (정밀도와 재현율의 조화 평균)
+            f.write("-" * 60 + "\n")    # 구분선
 
         best_row = epoch_history.loc[
-            epoch_history[
-                "eval_f1"
-            ].idxmax()
+            epoch_history["eval_f1"].idxmax()   # F1 점수 기준 최고값 선정
         ]
         f.write("\n")
-        f.write(
-            "=" * 60 + "\n"
-        )
-        f.write(
-            "BEST EPOCH\n"
-        )
-        f.write(
-            "=" * 60 + "\n"
-        )
-        f.write(
-            f"Epoch     : "
-            f"{int(best_row['epoch'])}\n"
-        )
-        f.write(
-            f"F1 Score  : "
-            f"{best_row['eval_f1']:.4f}\n"
-        )
+        f.write("=" * 60 + "\n")    # 구분선
+        f.write("BEST EPOCH\n") # 제목 
+        f.write("=" * 60 + "\n")    # 구분선
 
-    print(
-        f"Epoch metrics saved -> "
-        f"{epoch_file}"
-    )
+        f.write(f"Epoch     : {int(best_row['epoch'])}\n")   # 에포크 수
+        f.write(f"F1 Score  : {best_row['eval_f1']:.4f}\n")  # F1 점수
 
-    print(
-        "\n===== TEST START =====\n"
-    )
+    print(f"Epoch metrics saved -> {result_file}")    # 콘솔 출력
 
-    start = time.time()
-    result = trainer.predict(
-        encoded["test"]
-    )
+    print("\n===== TEST START =====\n")
 
-    end = time.time()
-    print(
-        result.metrics
-    )
+    start = time.time() # 타이머 시작
+    result = trainer.predict(encoded["test"])   # 추론 시작
 
-    print(
-        f"\nInference Time : "
-        f"{end - start:.4f}s"
-    )
+    end = time.time()   # 타이머 중지
+    print(result.metrics)   # 평가 점수 출력
 
-    test_file = (
-        OUTPUT_DIR
-        / f"test_metrics_{timestamp}.txt"
-    )
+    print(f"\nInference Time : {end - start:.4f}s")  # 추론 소요 시간
 
-    with open(
-        test_file,
-        "w",
-        encoding="utf-8"
-    ) as f:
-        f.write(
-            "=" * 60 + "\n"
-        )
-        f.write(
-            "FINAL TEST RESULT\n"
-        )
-        f.write(
-            "=" * 60 + "\n\n"
-        )
-        f.write(
-            f"Loss      : "
-            f"{result.metrics['test_loss']:.4f}\n"
-        )
-        f.write(
-            f"Precision : "
-            f"{result.metrics['test_precision']:.4f}\n"
-        )
-        f.write(
-            f"Recall    : "
-            f"{result.metrics['test_recall']:.4f}\n"
-        )
-        f.write(
-            f"F1 Score  : "
-            f"{result.metrics['test_f1']:.4f}\n"
-        )
-        f.write(
-            f"Runtime   : "
-            f"{result.metrics['test_runtime']:.2f} sec\n"
-        )
+    with open(  # 파일에 결과 이어서 작성
+        result_file, "a", encoding="utf-8"
+    ) as f:   
+        f.write("\n")
+        f.write("=" * 60 + "\n")    # 구분선
+        f.write("FINAL TEST RESULT\n")  # 제목
+        f.write("=" * 60 + "\n\n")  # 구분선
+        f.write(f"Loss      : {result.metrics['test_loss']:.4f}\n")  # loss
+        f.write(f"Precision : {result.metrics['test_precision']:.4f}\n")    # 정밀도
+        f.write(f"Recall    : {result.metrics['test_recall']:.4f}\n")   # 재현율
+        f.write(f"F1 Score  : {result.metrics['test_f1']:.4f}\n")    # F1 점수 (정밀도와 재현율의 조화 평균)
+        f.write(f"Runtime   : {result.metrics['test_runtime']:.2f} sec\n")   # 소요 시간
 
-    print(
-        f"Test metrics saved -> "
-        f"{test_file}"
-    )
+    print(f"Test metrics saved -> {result_file}")   # 콘솔 출력
 
-    MODEL_DIR.mkdir(
+    MODEL_DIR.mkdir(    # 모델 저장할 파일 생성
         parents=True,
         exist_ok=True
     )
 
-    trainer.save_model(
-        str(MODEL_DIR)
-    )
+    trainer.save_model(str(MODEL_DIR))  # 모델 저장
 
-    tokenizer.save_pretrained(
-        str(MODEL_DIR)
-    )
+    tokenizer.save_pretrained(str(MODEL_DIR))   # 토크나이저 저장
 
-    print(
-        f"\nSaved Model -> "
-        f"{MODEL_DIR}"
-    )
+    print(f"\nSaved Model -> {MODEL_DIR}")  # 콘솔 출력
 
 if __name__ == "__main__":  # 메인 함수 실행
     main()

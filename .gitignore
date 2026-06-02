@@ -12,7 +12,7 @@ env/
 # VSCode
 .vscode/
 
-# Model files
+# Model fil
 models/
 
 # Training outputs
