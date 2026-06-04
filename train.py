@@ -132,31 +132,29 @@ def tokenize_and_align_labels(batch):
 
 # 성능 평가 지수 정의 =====================================================
 def compute_metrics(eval_pred):
+    logits, labels = eval_pred
+    preds = np.argmax(logits, axis=-1)
 
-    predictions, labels = eval_pred
-    predictions = np.argmax(predictions, axis=2)    # 각 토큰 중 최고값 선택
-
-    true_predictions = []
+    true_preds = []
     true_labels = []
 
-    for prediction, label in zip(predictions, labels):  # 한 문장씩 처리
+    for pred_seq, label_seq in zip(preds, labels):
+        p_seq = []
+        l_seq = []
 
-        pred_seq = []
-        label_seq = []
+        for p, l in zip(pred_seq, label_seq):
+            if l == -100:
+                continue
+            p_seq.append(id2label[p])
+            l_seq.append(id2label[l])
 
-        for p, l in zip(prediction,label):  # 토큰 하나씩 확인
+        true_preds.append(p_seq)
+        true_labels.append(l_seq)
 
-            if l != -100:   # 특수 토큰 제외
-                pred_seq.append(id2label[p])    # id -> 태그 변환
-                label_seq.append(id2label[l])
-
-        true_predictions.append(pred_seq)   # 문장 저장
-        true_labels.append(label_seq)
-
-    return {    # 결과 계산 및 반환
-        "precision": precision_score(true_labels, true_predictions),
-        "recall": recall_score(true_labels, true_predictions),
-        "f1": f1_score(true_labels, true_predictions)
+    return {
+        "precision": precision_score(true_labels, true_preds),
+        "recall": recall_score(true_labels, true_preds),
+        "f1": f1_score(true_labels, true_preds),
     }
 
 # Main =====================================================
@@ -204,19 +202,41 @@ def main():
 
     # 학습 파라미터 정의
     training_args = TrainingArguments(
-        output_dir=str(MODEL_DIR),  # 학습 결과 저장 폴더
-        num_train_epochs=EPOCHS,    # 에포크 수
-        learning_rate=LEARNING_RATE,    # 학습률
-        per_device_train_batch_size=BATCH_SIZE, # 학습 배치 크기
-        per_device_eval_batch_size=BATCH_SIZE,  # 평가 배치 크기
-        weight_decay=WEIGHT_DECAY,  # L2 정규화 계수 (과적합 예방)
-        eval_strategy="epoch",  # 각 에포크마다 검증 수행
-        save_strategy="epoch",  # 각 에포크마다 모델 저장
-        save_total_limit=1, # 저장할 체크포인트 개수 제한
-        load_best_model_at_end=True,    # 가장 성능이 좋은 모델 로드
-        fp16=torch.cuda.is_available(), # GPU 사용시 혼합 정밀도 학습 수행
-        dataloader_num_workers=4,   # 데이터 로딩 프로세스 개수
-        report_to="none"    # 로그 업로드 X
+        output_dir=str(MODEL_DIR),
+
+        # ===== 학습 =====
+        num_train_epochs=10,
+        learning_rate=2e-5,
+        weight_decay=0.01,
+
+        per_device_train_batch_size=16,
+        per_device_eval_batch_size=32,
+
+        # ===== 속도 핵심 =====
+        fp16=True,  # torch.cuda.is_available() 말고 강제 True 추천
+        dataloader_num_workers=2,  # 0~2가 노트북에서 가장 안정적
+        dataloader_pin_memory=True,
+
+        # ===== eval 최적화 =====
+        eval_strategy="steps",
+        eval_steps=200,
+        save_strategy="steps",
+        save_steps=200,
+        save_total_limit=1,
+
+        load_best_model_at_end=True,
+        metric_for_best_model="f1",
+        greater_is_better=True,
+
+        # ===== 로그 최적화 =====
+        logging_strategy="steps",
+        logging_steps=50,
+
+        report_to="none",
+
+        # ===== 속도 개선 옵션 =====
+        gradient_accumulation_steps=1,
+        optim="adamw_torch",  # 중요: HF 기본 optimizer보다 빠름
     )
 
     trainer = Trainer(  # 학습 설정
