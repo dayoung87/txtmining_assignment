@@ -262,6 +262,15 @@ def main():
     with open(  # 파일에 결과값 작성
         result_file, "w", encoding="utf-8"
     ) as f:
+        
+        # 모델 설정값 작성
+        f.write(f"MODEL: {MODEL_CKPT}\n")
+        f.write(f"TRAIN_SIZE: {TRAIN_SIZE}\n")
+        f.write(f"VAL_SIZE: {VAL_SIZE}\n")
+        f.write(f"TEST_SIZE: {TEST_SIZE}\n")
+        f.write(f"SEED: {SEED}\n")
+        f.write(f"BATCH_SIZE: {BATCH_SIZE}\n")
+        f.write(f"EPOCHS: {EPOCHS}\n")
 
         f.write("=" * 60 + "\n")    # 구분선
         f.write("EPOCH METRICS\n")  # 제목
