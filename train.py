@@ -133,25 +133,25 @@ def tokenize_and_align_labels(batch):
 # 성능 평가 지수 정의 =====================================================
 def compute_metrics(eval_pred):
     logits, labels = eval_pred
-    preds = np.argmax(logits, axis=-1)
+    preds = np.argmax(logits, axis=-1)  # 각 토큰 중 최고값 선택
 
     true_preds = []
     true_labels = []
 
-    for pred_seq, label_seq in zip(preds, labels):
+    for pred_seq, label_seq in zip(preds, labels):  # 한 문장씩 처리
         p_seq = []
         l_seq = []
 
-        for p, l in zip(pred_seq, label_seq):
-            if l == -100:
+        for p, l in zip(pred_seq, label_seq):   # 토큰 하나씩 확인
+            if l == -100:   # 특수 토큰 제외
                 continue
-            p_seq.append(id2label[p])
+            p_seq.append(id2label[p])   # id -> 태그 변환
             l_seq.append(id2label[l])
 
         true_preds.append(p_seq)
         true_labels.append(l_seq)
 
-    return {
+    return {    # 결과 계산 및 반환
         "precision": precision_score(true_labels, true_preds),
         "recall": recall_score(true_labels, true_preds),
         "f1": f1_score(true_labels, true_preds),
@@ -202,41 +202,34 @@ def main():
 
     # 학습 파라미터 정의
     training_args = TrainingArguments(
-        output_dir=str(MODEL_DIR),
+        output_dir=str(MODEL_DIR),  # 학습 결과 저장 폴더
 
-        # ===== 학습 =====
-        num_train_epochs=10,
-        learning_rate=2e-5,
-        weight_decay=0.01,
+        num_train_epochs=EPOCHS,    # 에포크 수
+        learning_rate=LEARNING_RATE,    # 학습률
+        weight_decay=WEIGHT_DECAY,  # L2 정규화 계수 (과적합 예방)
 
-        per_device_train_batch_size=16,
-        per_device_eval_batch_size=32,
+        per_device_train_batch_size=BATCH_SIZE, # 학습 배치 크기
+        per_device_eval_batch_size=(BATCH_SIZE*2),  # 평가 배치 크기
 
-        # ===== 속도 핵심 =====
-        fp16=True,  # torch.cuda.is_available() 말고 강제 True 추천
-        dataloader_num_workers=2,  # 0~2가 노트북에서 가장 안정적
-        dataloader_pin_memory=True,
+        fp16=True,  # GPU 이용 혼합 정밀도 학습 수행
+        dataloader_num_workers=2,  # 데이터 로딩 프로세스 개수
+        dataloader_pin_memory=True, # CPU -> GPU 전송 최적화
 
-        # ===== eval 최적화 =====
-        eval_strategy="steps",
-        eval_steps=200,
-        save_strategy="steps",
-        save_steps=200,
-        save_total_limit=1,
+        eval_strategy="epoch",  # 각 에포크마다 검증 수행
+        save_strategy="epoch",  # 각 에포크마다 모델 저장
+        save_total_limit=1, # 최신 체크포인트만 유지
 
-        load_best_model_at_end=True,
-        metric_for_best_model="f1",
-        greater_is_better=True,
+        load_best_model_at_end=True,    # 가장 성능이 좋은 모델 로드
+        metric_for_best_model="f1", # 성능 평가 기준 지표
+        greater_is_better=True, # 높을수록 좋음
 
-        # ===== 로그 최적화 =====
-        logging_strategy="steps",
-        logging_steps=50,
+        logging_strategy="steps",   # 각 스텝마다 로그 출력
+        logging_steps=50,   # 로그 스텝 크기 정의
 
-        report_to="none",
+        report_to="none",   # 외부 로깅 툴 미사용
 
-        # ===== 속도 개선 옵션 =====
-        gradient_accumulation_steps=1,
-        optim="adamw_torch",  # 중요: HF 기본 optimizer보다 빠름
+        gradient_accumulation_steps=1,  # 그레디언트 즉시 업데이트
+        optim="adamw_torch",  # 옵티마이저 지정
     )
 
     trainer = Trainer(  # 학습 설정
