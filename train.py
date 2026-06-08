@@ -187,115 +187,25 @@ def main():
         remove_columns=dataset["train"].column_names    # RAM 줄이기 위한 컬럼 지우기
     )
 
-    model = (   # 모델 로딩
-        AutoModelForTokenClassification.from_pretrained(   # 토큰 분류
-            MODEL_CKPT,
-            num_labels=len(LABEL_LIST),
-            id2label=id2label,
-            label2id=label2id
-        ).to(DEVICE)
-    )
+    model = AutoModelForTokenClassification.from_pretrained("ml6team/keyphrase-extraction-distilbert-kptimes")
 
     data_collator = (   # 배치 단위 패딩
         DataCollatorForTokenClassification(tokenizer=tokenizer)
     )
 
-    # 학습 파라미터 정의
-    training_args = TrainingArguments(
-        output_dir=str(MODEL_DIR),  # 학습 결과 저장 폴더
-
-        num_train_epochs=EPOCHS,    # 에포크 수
-        learning_rate=LEARNING_RATE,    # 학습률
-        weight_decay=WEIGHT_DECAY,  # L2 정규화 계수 (과적합 예방)
-
-        per_device_train_batch_size=BATCH_SIZE, # 학습 배치 크기
-        per_device_eval_batch_size=(BATCH_SIZE*2),  # 평가 배치 크기
-
-        fp16=True,  # GPU 이용 혼합 정밀도 학습 수행
-        dataloader_num_workers=2,  # 데이터 로딩 프로세스 개수
-        dataloader_pin_memory=True, # CPU -> GPU 전송 최적화
-
-        eval_strategy="epoch",  # 각 에포크마다 검증 수행
-        save_strategy="epoch",  # 각 에포크마다 모델 저장
-        save_total_limit=1, # 최신 체크포인트만 유지
-
-        load_best_model_at_end=True,    # 가장 성능이 좋은 모델 로드
-        metric_for_best_model="f1", # 성능 평가 기준 지표
-        greater_is_better=True, # 높을수록 좋음
-
-        logging_strategy="steps",   # 각 스텝마다 로그 출력
-        logging_steps=50,   # 로그 스텝 크기 정의
-
-        report_to="none",   # 외부 로깅 툴 미사용
-
-        gradient_accumulation_steps=1,  # 그레디언트 즉시 업데이트
-        optim="adamw_torch",  # 옵티마이저 지정
-    )
-
     trainer = Trainer(  # 학습 설정
         model=model,
-        args=training_args,
-        train_dataset=encoded["train"],
-        eval_dataset=encoded["validation"],
         processing_class=tokenizer,
         data_collator=data_collator,
         compute_metrics=compute_metrics
     )
 
     print("\n===== TRAIN START =====\n")
-    trainer.train() # 학습 실행
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")    # 현재 시간 저장
 
-    history = pd.DataFrame(trainer.state.log_history)
+    result_file = (OUTPUT_DIR/ f"pretrained_metrics.txt") # 에포크별 평가 결과 저장할 파일 생성
 
-    epoch_history = history[history["eval_f1"].notna()][[
-        "epoch",
-        "eval_loss",
-        "eval_precision",
-        "eval_recall",
-        "eval_f1"
-    ]]
-
-    result_file = (OUTPUT_DIR/ f"epoch_metrics_{timestamp}.txt") # 에포크별 평가 결과 저장할 파일 생성
-
-    with open(  # 파일에 결과값 작성
-        result_file, "w", encoding="utf-8"
-    ) as f:
-        
-        # 모델 설정값 작성
-        f.write(f"MODEL: {MODEL_CKPT}\n")
-        f.write(f"TRAIN_SIZE: {TRAIN_SIZE}\n")
-        f.write(f"VAL_SIZE: {VAL_SIZE}\n")
-        f.write(f"TEST_SIZE: {TEST_SIZE}\n")
-        f.write(f"SEED: {SEED}\n")
-        f.write(f"BATCH_SIZE: {BATCH_SIZE}\n")
-        f.write(f"EPOCHS: {EPOCHS}\n")
-
-        f.write("=" * 60 + "\n")    # 구분선
-        f.write("EPOCH METRICS\n")  # 제목
-        f.write("=" * 60 + "\n\n"   # 구분선
-    )
-        for _, row in (epoch_history.iterrows()):   # 에포크마다 작성
-            f.write(f"Epoch {int(row['epoch'])}\n")  # 에포크 수
-            f.write(f"Loss      : {row['eval_loss']:.4f}\n") # loss
-            f.write(f"Precision : {row['eval_precision']:.4f}\n")    # 정밀도
-            f.write(f"Recall    : {row['eval_recall']:.4f}\n")   # 재현율
-            f.write(f"F1 Score  : {row['eval_f1']:.4f}\n")   # F1 점수 (정밀도와 재현율의 조화 평균)
-            f.write("-" * 60 + "\n")    # 구분선
-
-        best_row = epoch_history.loc[
-            epoch_history["eval_f1"].idxmax()   # F1 점수 기준 최고값 선정
-        ]
-        f.write("\n")
-        f.write("=" * 60 + "\n")    # 구분선
-        f.write("BEST EPOCH\n") # 제목 
-        f.write("=" * 60 + "\n")    # 구분선
-
-        f.write(f"Epoch     : {int(best_row['epoch'])}\n")   # 에포크 수
-        f.write(f"F1 Score  : {best_row['eval_f1']:.4f}\n")  # F1 점수
-
-    print(f"Epoch metrics saved -> {result_file}")    # 콘솔 출력
 
     print("\n===== TEST START =====\n")
 
@@ -321,13 +231,6 @@ def main():
         f.write(f"Runtime   : {result.metrics['test_runtime']:.2f} sec\n")   # 소요 시간
 
     print(f"Test metrics saved -> {result_file}")   # 콘솔 출력
-
-    MODEL_DIR.mkdir(    # 모델 저장할 파일 생성
-        parents=True,
-        exist_ok=True
-    )
-
-    trainer.save_model(str(MODEL_DIR))  # 모델 저장
 
     tokenizer.save_pretrained(str(MODEL_DIR))   # 토크나이저 저장
 

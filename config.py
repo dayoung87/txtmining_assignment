@@ -8,7 +8,7 @@ import torch
 # distilbert-base-cased -> DistillBERT 모델명
 # =====================================================
 
-MODEL_CKPT = "bert-base-cased" # 모델 이름
+MODEL_CKPT = "ml6team/keyphrase-extraction-distilbert-kptimes" # 모델 이름
 
 TRAIN_SIZE = 10000
 VAL_SIZE = 1000
