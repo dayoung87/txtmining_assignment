@@ -132,31 +132,29 @@ def tokenize_and_align_labels(batch):
 
 # 성능 평가 지수 정의 =====================================================
 def compute_metrics(eval_pred):
+    logits, labels = eval_pred
+    preds = np.argmax(logits, axis=-1)  # 각 토큰 중 최고값 선택
 
-    predictions, labels = eval_pred
-    predictions = np.argmax(predictions, axis=2)    # 각 토큰 중 최고값 선택
-
-    true_predictions = []
+    true_preds = []
     true_labels = []
 
-    for prediction, label in zip(predictions, labels):  # 한 문장씩 처리
+    for pred_seq, label_seq in zip(preds, labels):  # 한 문장씩 처리
+        p_seq = []
+        l_seq = []
 
-        pred_seq = []
-        label_seq = []
+        for p, l in zip(pred_seq, label_seq):   # 토큰 하나씩 확인
+            if l == -100:   # 특수 토큰 제외
+                continue
+            p_seq.append(id2label[p])   # id -> 태그 변환
+            l_seq.append(id2label[l])
 
-        for p, l in zip(prediction,label):  # 토큰 하나씩 확인
-
-            if l != -100:   # 특수 토큰 제외
-                pred_seq.append(id2label[p])    # id -> 태그 변환
-                label_seq.append(id2label[l])
-
-        true_predictions.append(pred_seq)   # 문장 저장
-        true_labels.append(label_seq)
+        true_preds.append(p_seq)
+        true_labels.append(l_seq)
 
     return {    # 결과 계산 및 반환
-        "precision": precision_score(true_labels, true_predictions),
-        "recall": recall_score(true_labels, true_predictions),
-        "f1": f1_score(true_labels, true_predictions)
+        "precision": precision_score(true_labels, true_preds),
+        "recall": recall_score(true_labels, true_preds),
+        "f1": f1_score(true_labels, true_preds),
     }
 
 # Main =====================================================
@@ -205,18 +203,33 @@ def main():
     # 학습 파라미터 정의
     training_args = TrainingArguments(
         output_dir=str(MODEL_DIR),  # 학습 결과 저장 폴더
+
         num_train_epochs=EPOCHS,    # 에포크 수
         learning_rate=LEARNING_RATE,    # 학습률
-        per_device_train_batch_size=BATCH_SIZE, # 학습 배치 크기
-        per_device_eval_batch_size=BATCH_SIZE,  # 평가 배치 크기
         weight_decay=WEIGHT_DECAY,  # L2 정규화 계수 (과적합 예방)
+
+        per_device_train_batch_size=BATCH_SIZE, # 학습 배치 크기
+        per_device_eval_batch_size=(BATCH_SIZE*2),  # 평가 배치 크기
+
+        fp16=True,  # GPU 이용 혼합 정밀도 학습 수행
+        dataloader_num_workers=2,  # 데이터 로딩 프로세스 개수
+        dataloader_pin_memory=True, # CPU -> GPU 전송 최적화
+
         eval_strategy="epoch",  # 각 에포크마다 검증 수행
         save_strategy="epoch",  # 각 에포크마다 모델 저장
-        save_total_limit=1, # 저장할 체크포인트 개수 제한
+        save_total_limit=1, # 최신 체크포인트만 유지
+
         load_best_model_at_end=True,    # 가장 성능이 좋은 모델 로드
-        fp16=torch.cuda.is_available(), # GPU 사용시 혼합 정밀도 학습 수행
-        dataloader_num_workers=4,   # 데이터 로딩 프로세스 개수
-        report_to="none"    # 로그 업로드 X
+        metric_for_best_model="f1", # 성능 평가 기준 지표
+        greater_is_better=True, # 높을수록 좋음
+
+        logging_strategy="steps",   # 각 스텝마다 로그 출력
+        logging_steps=50,   # 로그 스텝 크기 정의
+
+        report_to="none",   # 외부 로깅 툴 미사용
+
+        gradient_accumulation_steps=1,  # 그레디언트 즉시 업데이트
+        optim="adamw_torch",  # 옵티마이저 지정
     )
 
     trainer = Trainer(  # 학습 설정
@@ -249,6 +262,15 @@ def main():
     with open(  # 파일에 결과값 작성
         result_file, "w", encoding="utf-8"
     ) as f:
+        
+        # 모델 설정값 작성
+        f.write(f"MODEL: {MODEL_CKPT}\n")
+        f.write(f"TRAIN_SIZE: {TRAIN_SIZE}\n")
+        f.write(f"VAL_SIZE: {VAL_SIZE}\n")
+        f.write(f"TEST_SIZE: {TEST_SIZE}\n")
+        f.write(f"SEED: {SEED}\n")
+        f.write(f"BATCH_SIZE: {BATCH_SIZE}\n")
+        f.write(f"EPOCHS: {EPOCHS}\n")
 
         f.write("=" * 60 + "\n")    # 구분선
         f.write("EPOCH METRICS\n")  # 제목

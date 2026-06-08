@@ -10,12 +10,12 @@ import torch
 
 MODEL_CKPT = "bert-base-cased" # 모델 이름
 
-TRAIN_SIZE = 100
-VAL_SIZE = 50
-TEST_SIZE = 50
-SEED = 42
+TRAIN_SIZE = 10000
+VAL_SIZE = 1000
+TEST_SIZE = 1000
+SEED = 26
 BATCH_SIZE = 16
-EPOCHS = 1
+EPOCHS = 10
 
 # 저장 경로 지정
 MODEL_DIR = (
