@@ -27,17 +27,11 @@ LEARNING_RATE = 2e-5
 WEIGHT_DECAY = 0.01
 
 # BIO 태그 정의
-LABEL_LIST = ["O", "B", "I"]
+LABEL_LIST = ["B", "I", "O"]
 
-label2id = {
-    label: idx
-    for idx, label in enumerate(LABEL_LIST)
-}
+label2id = {"B": 0, "I": 1, "O": 2}
 
-id2label = {
-    idx: label
-    for idx, label in enumerate(LABEL_LIST)
-}
+id2label = {0: "B", 1: "I", 2: "O"}
 
 DEVICE = torch.device(
     "cuda"

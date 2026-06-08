@@ -86,7 +86,7 @@ def preprocess_dataframe(df):
 
 # 단어 단위 BIO 태그 -> 토큰 단위 라벨로 정렬 =====================================================
 
-tokenizer = AutoTokenizer.from_pretrained(MODEL_CKPT)   # 모델에 맞는 토크나이저 로딩 
+tokenizer = AutoTokenizer.from_pretrained("ml6team/keyphrase-extraction-distilbert-kptimes")   # 모델에 맞는 토크나이저 로딩 
 
 def tokenize_and_align_labels(batch):
 

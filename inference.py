@@ -8,9 +8,9 @@ from transformers import (
 
 from config import *
 
-tokenizer = AutoTokenizer.from_pretrained(MODEL_DIR)    # 모델에 맞는 토크나이저 로딩
+tokenizer = AutoTokenizer.from_pretrained("ml6team/keyphrase-extraction-distilbert-kptimes")    # 모델에 맞는 토크나이저 로딩
 
-model = (AutoModelForTokenClassification.from_pretrained(MODEL_DIR).to(DEVICE)) # 학습시킨 모델 가져오기
+model = (AutoModelForTokenClassification.from_pretrained("ml6team/keyphrase-extraction-distilbert-kptimes").to(DEVICE)) # 학습시킨 모델 가져오기
 
 model.eval()    # 모델 추론 모드로 변경
 
